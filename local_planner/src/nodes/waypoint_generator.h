@@ -101,6 +101,8 @@ class WaypointGenerator {
     smoothing_speed_ = smoothing_speed;
   }
 
+  virtual ros::Time getSystemTime();
+
   WaypointGenerator();
   ~WaypointGenerator();
 };
