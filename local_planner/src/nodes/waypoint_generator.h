@@ -61,8 +61,8 @@ class WaypointGenerator {
   double new_yaw_;
   double speed_ = 1.0;
   int e_FOV_max_, e_FOV_min_;
-  double h_FOV_ = 59.0;
-  double v_FOV_ = 46.0;
+  float h_FOV_ = 59.0f;
+  float v_FOV_ = 46.0f;
 
   Eigen::Vector3f hover_position_;
   geometry_msgs::PoseStamped last_position_waypoint_;
@@ -86,7 +86,7 @@ class WaypointGenerator {
   waypointGenerator_params param_;
   waypointResult getWaypoints();
   void setPlannerInfo(const avoidanceOutput& input);
-  void setFOV(double h_FOV, double v_FOV);
+  void setFOV(float h_FOV, float v_FOV);
   void updateState(const geometry_msgs::PoseStamped& act_pose,
                    const geometry_msgs::PoseStamped& goal,
                    const geometry_msgs::TwistStamped& vel, bool stay,
