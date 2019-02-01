@@ -13,12 +13,13 @@ class WaypointGeneratorTests : public ::testing::Test,
   geometry_msgs::PoseStamped goal;
   geometry_msgs::TwistStamped velocity;
   bool stay = false;
+    ros::Time time = ros::Time(0.33);
 
   ros::Time getSystemTime() override { return ros::Time(0.35); }
 
   void SetUp() override {
     ros::Time::init();
-    ros::Time time = ros::Time(0.33);
+
 
     avoidance_output.waypoint_type = direct;
     avoidance_output.reach_altitude = true;
@@ -112,36 +113,40 @@ class WaypointGeneratorTests : public ::testing::Test,
 TEST_F(WaypointGeneratorTests, goFastTest) {
   // GIVEN: a waypoint of type goFast
 
+  float goto_to_goal_prev = 1000.0f;
+  float adapted_to_goal_prev = 1000.0f;
+  float pos_sp_to_goal_prev = 1000.0f;
+  double time_sec = 0.33;
+
   // WHEN: we generate waypoints
-  waypointResult result = getWaypoints();
-  result = getWaypoints();
+  for (size_t i = 0; i < 5; i++) {
+    waypointResult result = getWaypoints();
+    float goto_to_goal = (toEigen(goal.pose.position) - toEigen(result.goto_position)).norm();
+    float adapted_to_goal = (toEigen(goal.pose.position) - toEigen(result.adapted_goto_position)).norm();
+    float pos_sp_to_goal = (toEigen(goal.pose.position) - toEigen(result.position_waypoint.pose.position)).norm();
+    std::cout << "dist_to_goal " << goto_to_goal << " " << adapted_to_goal << " " << pos_sp_to_goal << std::endl;
+    ASSERT_LT(goto_to_goal, goto_to_goal_prev);
+    ASSERT_LT(adapted_to_goal, adapted_to_goal_prev);
+    ASSERT_LT(pos_sp_to_goal, pos_sp_to_goal_prev);
+    goto_to_goal_prev = goto_to_goal;
+    adapted_to_goal_prev = adapted_to_goal;
+    pos_sp_to_goal_prev = pos_sp_to_goal;
 
-  // THEN: we expect a waypoint in between the vehicle curent position and the
-  // goal
-  EXPECT_NEAR(0.957, result.goto_position.x, 0.001);
-  EXPECT_NEAR(0.287, result.goto_position.y, 0.001);
-  EXPECT_NEAR(2.0, result.goto_position.z, 0.001);
+    // calculate new vehicle position
+    Eigen::Vector3f pos = toEigen(position.pose.position);
+    Eigen::Vector3f pos_to_pos_sp = (toEigen(result.position_waypoint.pose.position) - pos).normalized();
+    Eigen::Vector3f vel_sp(result.velocity_waypoint.linear.x, result.velocity_waypoint.linear.y, result.velocity_waypoint.linear.z);
 
-  EXPECT_NEAR(1.0, result.adapted_goto_position.x, 0.001);
-  EXPECT_NEAR(0.3, result.adapted_goto_position.y, 0.001);
-  EXPECT_NEAR(2.0, result.adapted_goto_position.z, 0.001);
 
-  EXPECT_NEAR(3.197, result.position_waypoint.pose.position.x, 0.001);
-  EXPECT_NEAR(2.721, result.position_waypoint.pose.position.y, 0.001);
-  EXPECT_NEAR(2.477, result.position_waypoint.pose.position.z, 0.001);
+    float angle_pos_vel_sp = std::atan2(pos_to_pos_sp.cross(vel_sp).norm(), pos_to_pos_sp.dot(vel_sp));
+    EXPECT_NEAR(0.0, angle_pos_vel_sp, 1.0);
 
-  EXPECT_NEAR(0.0, result.position_waypoint.pose.orientation.x,0.001);
-  EXPECT_NEAR(0.0, result.position_waypoint.pose.orientation.y,0.001);
-  EXPECT_NEAR(0.345, result.position_waypoint.pose.orientation.z,0.001);
-  EXPECT_NEAR(0.938, result.position_waypoint.pose.orientation.w,0.001);
-
-  EXPECT_NEAR(3.197, result.velocity_waypoint.linear.x, 0.001);
-  EXPECT_NEAR(2.721, result.velocity_waypoint.linear.y, 0.001);
-  EXPECT_NEAR(0.477, result.velocity_waypoint.linear.z, 0.001);
-
-  EXPECT_NEAR(0.0, result.velocity_waypoint.angular.x, 0.001);
-  EXPECT_NEAR(0.0, result.velocity_waypoint.angular.y, 0.001);
-  EXPECT_NEAR(0.352, result.velocity_waypoint.angular.z, 0.001);
+    Eigen::Vector3f new_pos = pos + pos_to_pos_sp.normalized();
+    position.pose.position = toPoint(new_pos);
+    time_sec += 0.01;
+    time = ros::Time(time_sec);
+    updateState(position, goal, velocity, stay, time);
+  }
 }
 
 TEST_F(WaypointGeneratorTests, reachAltitudeTest) {
